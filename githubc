@@ -1,0 +1,40 @@
+#! /usr/bin/env ruby
+
+require 'fileutils'
+
+CONFIG_DIR  = '~/.config/arscripts/'
+CONFIG_FILE = CONFIG_DIR + 'githubc.conf'
+
+def Help()
+    puts 'Usage: githubc <username> <repository name> or githubc <repository name> after running githubc --default <username>'
+end
+
+def GithubClone(user, repository)
+    `git clone https://github.com/#{user}/#{repository}.git`
+end
+
+unless File.directory?(CONFIG_DIR)
+    FileUtils.mkdir_p(CONFIG_DIR)
+end
+
+if ARGV.length == 0 || ARGV[0] == "--help"
+    Help()
+    exit
+end
+
+if ARGV[0] == '--default'
+    File.write(CONFIG_FILE, ARGV[1])
+    puts "Default user amended to #{ARGV[1]}"
+    exit
+end
+
+if ARGV.length == 1
+    if (File.exists?(CONFIG_FILE))
+        GithubClone(File.read(CONFIG_FILE), ARGV[0])
+    else
+        Help()
+    end
+    exit
+end
+
+GithubClone(ARGV[0], ARGV[1])
