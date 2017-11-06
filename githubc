@@ -2,8 +2,8 @@
 
 require 'fileutils'
 
-CONFIG_DIR  = '~/.config/arscripts/'
-CONFIG_FILE = CONFIG_DIR + 'githubc.conf'
+CONFIG_DIR  = File.expand_path '~/.config/arscripts/'
+CONFIG_FILE = File.expand_path 'githubc.conf', CONFIG_DIR
 
 def Help()
     puts 'Usage: githubc <username> <repository name> or githubc <repository name> after running githubc --default <username>'
