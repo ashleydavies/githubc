@@ -1,40 +1,103 @@
 #! /usr/bin/env ruby
 
 require 'fileutils'
+require 'optparse'
+
+def GithubClone(user, repository, ssh = false)
+  if ssh
+    `git clone git@github.com:#{user}/#{repository}.git`
+  else
+    `git clone https://github.com/#{user}/#{repository}.git`
+  end
+end
 
 CONFIG_DIR  = File.expand_path '~/.config/arscripts/'
 CONFIG_FILE = File.expand_path 'githubc.conf', CONFIG_DIR
 
-def Help()
-    puts 'Usage: githubc <username> <repository name> or githubc <repository name> after running githubc --default <username>'
+options = {}
+
+def requireConfig()
+  FileUtils.mkdir_p(CONFIG_DIR)    unless File.directory? CONFIG_DIR
+  File.new(CONFIG_FILE, 'w').close unless File.exist?     CONFIG_FILE
 end
 
-def GithubClone(user, repository)
-    `git clone https://github.com/#{user}/#{repository}.git`
+def readConfig()
+  requireConfig
+
+  baseConfig = {
+    :ssh => true,
+  }
+
+  File.read(CONFIG_FILE).split(';').each do |config|
+    key, val = config.split('=')
+    val = true  if val == "true"
+    val = false if val == "false"
+    baseConfig[key.to_sym] = val
+  end
+
+  baseConfig
 end
 
-unless File.directory?(CONFIG_DIR)
-    FileUtils.mkdir_p(CONFIG_DIR)
+def writeConfig(config)
+  requireConfig
+
+  File.open(CONFIG_FILE, 'w') do |file|
+    config.each_pair do |key, val|
+      file.write("#{key}=#{val};")
+    end
+  end
 end
 
-if ARGV.length == 0 || ARGV[0] == "--help"
-    Help()
+def updateConfig(key, val)
+  config = readConfig
+  config[key] = val
+  writeConfig config
+end
+
+OptionParser.new do |opts|
+  opts.banner = "Usage: githubc [<username>] <repository>"
+
+  opts.on("-d", "--default USER", "Set default user to clone from") do |user|
+    updateConfig(:defaultUser, user)
+    puts "Default user amended to #{user}"
+  end
+
+  opts.on("-s", "--ssh", "Use ssh for cloning") do
+    options[:ssh] = true
+  end
+  
+  opts.on("-h", "--https", "Use https for cloning") do
+    options[:ssh] = false
+  end
+
+  opts.on("--always-ssh") do
+    updateConfig(:ssh, true)
+  end
+
+  opts.on("--always-https") do
+    updateConfig(:ssh, false)
+  end
+  
+  opts.on("-h", "--help", "Prints this help") do
+    puts opts
     exit
+  end
+end.parse!
+
+readConfig.each_pair do |key, val|
+  unless options.has_key? key
+    options[key] = val
+  end
 end
 
-if ARGV[0] == '--default'
-    File.write(CONFIG_FILE, ARGV[1])
-    puts "Default user amended to #{ARGV[1]}"
-    exit
-end
+exit if ARGV.length == 0
+exit if ARGV.length == 1 and not options.has_key? :defaultUser
+
+options[:repository] = ARGV.pop
 
 if ARGV.length == 1
-    if (File.exists?(CONFIG_FILE))
-        GithubClone(File.read(CONFIG_FILE), ARGV[0])
-    else
-        Help()
-    end
-    exit
+  options[:defaultUser] = ARGV.pop
 end
 
-GithubClone(ARGV[0], ARGV[1])
+GithubClone(options[:defaultUser], options[:repository], options[:ssh])
+
